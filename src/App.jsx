@@ -12,6 +12,7 @@ import Letter from './components/Letter';
 import Footer from './components/Footer';
 import AdminModal from './components/AdminModal';
 import { favoritesData } from './data/favorites';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -24,6 +25,43 @@ export default function App() {
     }
     return favoritesData;
   });
+
+  useEffect(() => {
+    const fetchFavoriteCards = async () => {
+      if (!isSupabaseConfigured) return;
+      try {
+        const { data, error } = await supabase.from('favorites').select('*').order('created_at', { ascending: false });
+        if (error) {
+          console.error('Failed to load favorites from Supabase:', error);
+          return;
+        }
+        if (data && data.length > 0) {
+          const merged = favoritesData.map((card) => {
+            const remote = data.find((item) => item.name === card.name);
+            return remote
+              ? {
+                  ...card,
+                  supabase_id: remote.id,
+                  name: remote.name || card.name,
+                  role: remote.role || card.role,
+                  emoji: remote.emoji || card.emoji,
+                  avatar: remote.avatar || card.avatar,
+                  favoriteColor: remote.favorite_color || card.favoriteColor,
+                  favoriteSong: remote.favorite_song || card.favoriteSong,
+                  favoriteFood: remote.favorite_food || card.favoriteFood,
+                  funFact: remote.fun_fact || card.funFact,
+                }
+              : card;
+          });
+          setFavoriteCards(merged);
+        }
+      } catch (err) {
+        console.error('Error fetching favorites from Supabase:', err);
+      }
+    };
+
+    fetchFavoriteCards();
+  }, [refreshTrigger]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {

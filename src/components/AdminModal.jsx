@@ -321,20 +321,73 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
       setUploadingPhoto(false);
     }
 
+    const updatedFavorite = {
+      ...editingFavorite,
+      avatar: avatarUrl || editingFavorite.avatar || null,
+      favoriteColor: editingFavorite.favoriteColor || editingFavorite.favorite_color || null,
+      favoriteSong: editingFavorite.favoriteSong || editingFavorite.favorite_song || null,
+      favoriteFood: editingFavorite.favoriteFood || editingFavorite.favorite_food || null,
+      funFact: editingFavorite.funFact || editingFavorite.fun_fact || null,
+    };
+
     const updatedCards = favoriteCards.map((item) => {
       if (item.id !== editingFavorite.id) return item;
       return {
         ...item,
-        name: editingFavorite.name,
-        role: editingFavorite.role,
-        emoji: editingFavorite.emoji,
-        avatar: avatarUrl || item.avatar,
-        favoriteColor: editingFavorite.favoriteColor || editingFavorite.favorite_color || item.favoriteColor,
-        favoriteSong: editingFavorite.favoriteSong || editingFavorite.favorite_song || item.favoriteSong,
-        favoriteFood: editingFavorite.favoriteFood || editingFavorite.favorite_food || item.favoriteFood,
-        funFact: editingFavorite.funFact || editingFavorite.fun_fact || item.funFact,
+        name: updatedFavorite.name,
+        role: updatedFavorite.role,
+        emoji: updatedFavorite.emoji,
+        avatar: updatedFavorite.avatar || item.avatar,
+        favoriteColor: updatedFavorite.favoriteColor || item.favoriteColor,
+        favoriteSong: updatedFavorite.favoriteSong || item.favoriteSong,
+        favoriteFood: updatedFavorite.favoriteFood || item.favoriteFood,
+        funFact: updatedFavorite.funFact || item.funFact,
       };
     });
+
+    if (isSupabaseConfigured) {
+      try {
+        const query = supabase.from('favorites').update({
+            name: updatedFavorite.name,
+            role: updatedFavorite.role,
+            emoji: updatedFavorite.emoji,
+            avatar: updatedFavorite.avatar,
+            favorite_color: updatedFavorite.favoriteColor,
+            favorite_song: updatedFavorite.favoriteSong,
+            favorite_food: updatedFavorite.favoriteFood,
+            fun_fact: updatedFavorite.funFact,
+          });
+        const { error: updateError } = editingFavorite.supabase_id
+          ? await query.eq('id', editingFavorite.supabase_id)
+          : await query.eq('name', editingFavorite.name);
+
+        if (updateError) {
+          console.error('Supabase favorite update error:', updateError);
+          setMessage('Error menyimpan ke Supabase: ' + updateError.message);
+        } else {
+          const { data: existing, error: fetchError } = await supabase.from('favorites').select('id').eq('name', updatedFavorite.name).single();
+          if (fetchError || !existing) {
+            const { error: insertError } = await supabase.from('favorites').insert({
+              name: updatedFavorite.name,
+              role: updatedFavorite.role,
+              emoji: updatedFavorite.emoji,
+              avatar: updatedFavorite.avatar,
+              favorite_color: updatedFavorite.favoriteColor,
+              favorite_song: updatedFavorite.favoriteSong,
+              favorite_food: updatedFavorite.favoriteFood,
+              fun_fact: updatedFavorite.funFact,
+            });
+            if (insertError) {
+              console.error('Supabase favorite insert error:', insertError);
+              setMessage('Error menyimpan ke Supabase: ' + insertError.message);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Supabase favorite update exception:', err);
+      }
+    }
+
     setFavoriteCards(updatedCards);
     setEditingFavorite(null);
     clearEditFavoriteAvatar();
