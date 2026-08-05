@@ -86,6 +86,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.gallery;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.timeline;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.playlist;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.letters;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.favorites;
 
 -- Initial Seed Data: Gallery
 INSERT INTO public.gallery (caption, image, tag) VALUES

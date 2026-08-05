@@ -27,6 +27,26 @@ export default function App() {
   });
 
   useEffect(() => {
+    const mergeFavoriteData = (data) => {
+      return favoritesData.map((card) => {
+        const remote = data.find((item) => item.name === card.name);
+        return remote
+          ? {
+              ...card,
+              supabase_id: remote.id,
+              name: remote.name || card.name,
+              role: remote.role || card.role,
+              emoji: remote.emoji || card.emoji,
+              avatar: remote.avatar || card.avatar,
+              favoriteColor: remote.favorite_color || card.favoriteColor,
+              favoriteSong: remote.favorite_song || card.favoriteSong,
+              favoriteFood: remote.favorite_food || card.favoriteFood,
+              funFact: remote.fun_fact || card.funFact,
+            }
+          : card;
+      });
+    };
+
     const fetchFavoriteCards = async () => {
       if (!isSupabaseConfigured) return;
       try {
@@ -35,25 +55,8 @@ export default function App() {
           console.error('Failed to load favorites from Supabase:', error);
           return;
         }
-        if (data && data.length > 0) {
-          const merged = favoritesData.map((card) => {
-            const remote = data.find((item) => item.name === card.name);
-            return remote
-              ? {
-                  ...card,
-                  supabase_id: remote.id,
-                  name: remote.name || card.name,
-                  role: remote.role || card.role,
-                  emoji: remote.emoji || card.emoji,
-                  avatar: remote.avatar || card.avatar,
-                  favoriteColor: remote.favorite_color || card.favoriteColor,
-                  favoriteSong: remote.favorite_song || card.favoriteSong,
-                  favoriteFood: remote.favorite_food || card.favoriteFood,
-                  funFact: remote.fun_fact || card.funFact,
-                }
-              : card;
-          });
-          setFavoriteCards(merged);
+        if (data) {
+          setFavoriteCards(mergeFavoriteData(data));
         }
       } catch (err) {
         console.error('Error fetching favorites from Supabase:', err);
@@ -61,6 +64,20 @@ export default function App() {
     };
 
     fetchFavoriteCards();
+
+    if (!isSupabaseConfigured) return;
+
+    const channel = supabase
+      .channel('favorites-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'favorites' }, () => {
+        fetchFavoriteCards();
+      });
+
+    channel.subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [refreshTrigger]);
 
   useEffect(() => {
