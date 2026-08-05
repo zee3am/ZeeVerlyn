@@ -1,0 +1,236 @@
+@import url('https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,100..900;1,100..900&family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:ital,wght@0,100..900;1,100..900&family=Kalam:wght@300;400;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* === Color Palette === */
+  --color-surface: #fff8f3;
+  --color-background: #fff8f3;
+  --color-on-surface: #1d1b18;
+  --color-on-background: #1d1b18;
+  --color-primary: #8a4b63;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #f4a6c1;
+  --color-on-primary-container: #743850;
+  --color-primary-fixed: #ffd9e4;
+  --color-primary-fixed-dim: #ffb0cb;
+  --color-secondary: #aa2c62;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #ff6fa5;
+  --color-on-secondary-container: #71003a;
+  --color-secondary-fixed: #ffd9e2;
+  --color-secondary-fixed-dim: #ffb0c8;
+  --color-tertiary: #5f5e5e;
+  --color-outline: #837377;
+  --color-outline-variant: #d6c1c6;
+  --color-surface-variant: #e8e1dc;
+  --color-on-surface-variant: #514347;
+  --color-surface-container: #f3ede8;
+  --color-surface-container-low: #f9f2ed;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-high: #eee7e2;
+  --color-surface-container-highest: #e8e1dc;
+  --color-surface-dim: #dfd9d4;
+  --color-surface-bright: #fff8f3;
+  --color-inverse-surface: #33302d;
+  --color-inverse-on-surface: #f6efeb;
+  --color-inverse-primary: #ffb0cb;
+  --color-surface-tint: #8a4b63;
+  --color-on-tertiary-fixed-variant: #474646;
+
+  /* === Typography === */
+  --font-display-hero: "Anybody", sans-serif;
+  --font-headline-lg: "Anybody", sans-serif;
+  --font-headline-lg-mobile: "Anybody", sans-serif;
+  --font-tagline-italic: "Bricolage Grotesque", serif;
+  --font-body-md: "Hanken Grotesk", sans-serif;
+  --font-label-caps: "Hanken Grotesk", sans-serif;
+  --font-handwritten: "Kalam", cursive;
+
+  /* === Spacing === */
+  --spacing-margin-desktop: 64px;
+  --spacing-margin-mobile: 20px;
+  --spacing-gutter: 16px;
+  --spacing-panel-gap: 12px;
+}
+
+/* ===== Global Base ===== */
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body-md);
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+*::selection {
+  background-color: var(--color-secondary-container);
+  color: var(--color-on-secondary-container);
+}
+
+/* ===== Material Symbols ===== */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.material-symbols-outlined.filled {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* ===== Comic/Pop-Art Design Utilities ===== */
+.halftone-bg {
+  background-image: radial-gradient(circle, #111111 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+
+.halftone-bg-pink {
+  background-image: radial-gradient(circle, #f4a6c1 2px, transparent 2.5px);
+  background-size: 8px 8px;
+}
+
+.web-lines {
+  background-image: 
+    linear-gradient(45deg, transparent 49%, #F4A6C1 49%, #F4A6C1 51%, transparent 51%),
+    linear-gradient(-45deg, transparent 49%, #F4A6C1 49%, #F4A6C1 51%, transparent 51%);
+  background-size: 120px 120px;
+}
+
+.comic-shadow {
+  box-shadow: 6px 6px 0px 0px #111111;
+}
+
+.comic-shadow-pink {
+  box-shadow: 6px 6px 0px 0px #FF6FA5;
+}
+
+.comic-shadow-sm {
+  box-shadow: 4px 4px 0px 0px #111111;
+}
+
+.comic-shadow-lg {
+  box-shadow: 8px 8px 0px 0px #111111;
+}
+
+.halftone-card {
+  position: relative;
+}
+.halftone-card::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 100%;
+  height: 100%;
+  background-image: radial-gradient(circle, #1d1b18 2px, transparent 2.5px);
+  background-size: 8px 8px;
+  z-index: -1;
+  border: 2px solid #1d1b18;
+  background-color: #fff8f3;
+}
+
+.halftone-shadow-hero {
+  position: relative;
+}
+.halftone-shadow-hero::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: -12px;
+  bottom: -12px;
+  background-image: radial-gradient(circle, #111111 2px, transparent 2px);
+  background-size: 8px 8px;
+  z-index: -1;
+  border: 2px solid #111111;
+  background-color: #f4a6c1;
+}
+
+.hover-shift {
+  transition: transform 0.15s ease;
+}
+.hover-shift:hover {
+  transform: translate(-2px, -2px);
+}
+
+/* Tape decorations */
+.tape {
+  position: absolute;
+  width: 40px;
+  height: 12px;
+  background-color: #ffb0cb;
+  opacity: 0.85;
+  border: 1px solid #111;
+  z-index: 10;
+}
+
+.washi-tape {
+  position: absolute;
+  width: 80px;
+  height: 20px;
+  background-color: #ff6fa5;
+  border: 2px solid #111111;
+  opacity: 0.9;
+  z-index: 10;
+}
+
+/* Halftone corner decoration */
+.halftone-corner {
+  background-image: radial-gradient(circle, #ffb0cb 30%, transparent 30%);
+  background-size: 8px 8px;
+}
+
+/* Hide scrollbar but keep scroll */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Web line divider */
+.web-line {
+  height: 1px;
+  background-color: var(--color-on-background);
+  width: 100%;
+  position: relative;
+}
+.web-node {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  background-color: var(--color-primary-container);
+  border: 2px solid var(--color-on-background);
+  border-radius: 50%;
+}
+
+/* Comic speech bubble */
+.comic-bubble { position: relative; }
+.comic-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 20px;
+  border-width: 10px 10px 0;
+  border-style: solid;
+  border-color: #1d1b18 transparent transparent transparent;
+  display: block;
+  width: 0;
+}
+
+/* Scan line animation */
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
