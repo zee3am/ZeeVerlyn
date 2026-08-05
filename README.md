@@ -1,20 +1,53 @@
-<<<<<<< HEAD
-# React + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
-=======
 # ZeeVerlyn
->>>>>>> 14679bae5514b49533856b457bc41f3a690bc37c
+
+Website personal yang dibuat dengan React dan Vite.
+
+## Persiapan Supabase
+
+1. Salin `.env.example` menjadi `.env` di root project.
+2. Isi:
+   - `VITE_SUPABASE_URL=https://<your-project-id>.supabase.co`
+   - `VITE_SUPABASE_ANON_KEY=<your-anon-key>`
+3. Jangan commit file `.env` ke Git.
+
+## Konfigurasi Vercel
+
+1. Buka dashboard Vercel proyek kamu.
+2. Tambahkan Environment Variables:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+3. Deploy ulang aplikasi setelah menyimpan environment variables.
+
+## Gambar Statis
+
+Aplikasi menggunakan path gambar statis dari `public/images/` seperti:
+
+- `public/images/timeline/first-met.jpg`
+- `public/images/timeline/first-date.jpg`
+- `public/images/timeline/jadian.jpg`
+- `public/images/timeline/first-trip.jpg`
+- `public/images/gallery/photo-1.jpg`
+- `public/images/gallery/photo-2.jpg`
+- `public/images/gallery/photo-3.jpg`
+- `public/images/playlist/cover-1.jpg`
+- `public/images/playlist/cover-2.jpg`
+- `public/images/avatars/zidane.png`
+- `public/images/avatars/verlita.png`
+
+Jika kamu menggunakan gambar sendiri, letakkan file-file tersebut di folder `public/images/...` sesuai path.
+
+## Deploy ulang
+
+Setelah env Supabase terpasang dan file gambar tersedia, jalankan:
+
+```bash
+npm run build
+npm run preview
+```
+
+Lalu push ke Git dan deploy ulang di Vercel.
+
+## Catatan
+
+- Jika masih muncul `Mode demo: Supabase belum terhubung!`, artinya `VITE_SUPABASE_URL` atau `VITE_SUPABASE_ANON_KEY` belum terpasang dengan benar.
+- Jika masih muncul error 404 untuk gambar, pastikan file sudah ada di folder `public/images/` dan pathnya sesuai.
