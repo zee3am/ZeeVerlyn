@@ -96,26 +96,26 @@ export default function Letter({ refreshTrigger }) {
           {/* Header */}
           <header>
             <h1 className="font-[Kalam] text-3xl sm:text-4xl md:text-5xl text-[#1d1b18] leading-tight flex items-center justify-between gap-2 break-words">
-              <span>{letterData.greeting}</span>
+              <span>{displayData.greeting}</span>
               <span className="text-xl sm:text-2xl flex-shrink-0 animate-pulse">🕸️</span>
             </h1>
           </header>
 
           {/* Body paragraphs */}
           <div className="font-[Kalam] text-lg sm:text-xl md:text-2xl text-[#474646] leading-relaxed space-y-4 sm:space-y-6 break-words">
-            {letterData.paragraphs.map((para, i) => (
+            {displayData.paragraphs.map((para, i) => (
               <p key={i}>{para}</p>
             ))}
           </div>
 
           {/* Signature */}
           <footer className="mt-4 sm:mt-6 text-right flex flex-col items-end gap-1.5">
-            <p className="font-[Kalam] text-lg sm:text-xl text-[#1d1b18]">{letterData.closing}</p>
+            <p className="font-[Kalam] text-lg sm:text-xl text-[#1d1b18]">{displayData.closing}</p>
             <p
               className="font-[Kalam] text-2xl sm:text-3xl md:text-4xl font-bold -rotate-2 mt-1 break-words"
               style={{ color: '#aa2c62' }}
             >
-              {letterData.signature}
+              {displayData.signature}
             </p>
             <div className="flex items-center gap-1 mt-1 text-[#ff6fa5]">
               <span
