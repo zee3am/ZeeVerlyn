@@ -239,7 +239,7 @@ export default function SpiderWebCanvas() {
       startTime: Date.now(),
     });
 
-    const words = ['THWIP! 🕸️', 'LOVE WEB! 💕', 'SPIDER-SENSE! ⚡', 'ZIP! 🕸️', 'ZEEVERLYN! ✨'];
+    const words = ['THWIP! 🕸️', 'LOVE U! 💕', 'SAYANGNYA ACUU! ⚡', 'MISS U! 🕸️', 'ZEEVERLYN! ✨'];
     const randomWord = words[Math.floor(Math.random() * words.length)];
     const newPopup = {
       id: Date.now() + Math.random(),

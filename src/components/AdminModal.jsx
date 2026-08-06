@@ -9,7 +9,17 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
   const [pinError, setPinError] = useState(false);
   const [activeTab, setActiveTab] = useState('hero');
 
-  const [galleryList, setGalleryList] = useState([]);
+  const [galleryAlbums, setGalleryAlbums] = useState([]);
+  const [selectedAlbum, setSelectedAlbum] = useState(null);
+  const [albumPhotos, setAlbumPhotos] = useState([]);
+  const [albumPhotoFiles, setAlbumPhotoFiles] = useState([]);
+  const [albumPhotoPreviews, setAlbumPhotoPreviews] = useState([]);
+  const albumPhotoInputRef = useRef(null);
+  const [albumCoverFile, setAlbumCoverFile] = useState(null);
+  const [albumCoverPreview, setAlbumCoverPreview] = useState(null);
+  const albumCoverInputRef = useRef(null);
+  const [albumCoverUrl, setAlbumCoverUrl] = useState('');
+
   const [timelineList, setTimelineList] = useState([]);
   const [playlistList, setPlaylistList] = useState([]);
   const [letterData, setLetterData] = useState(null);
@@ -25,10 +35,6 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
   const heroFileInputRef = useRef(null);
   const [heroUrlInput, setHeroUrlInput] = useState('');
 
-  const [photoPreview, setPhotoPreview] = useState(null);
-  const [photoFile, setPhotoFile] = useState(null);
-  const fileInputRef = useRef(null);
-
   const [editPhotoPreview, setEditPhotoPreview] = useState(null);
   const [editPhotoFile, setEditPhotoFile] = useState(null);
   const editFileInputRef = useRef(null);
@@ -41,12 +47,12 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
   const [editTimelinePhotoFile, setEditTimelinePhotoFile] = useState(null);
   const editTimelineFileInputRef = useRef(null);
 
-  const [editingGallery, setEditingGallery] = useState(null);
+  const [editingAlbum, setEditingAlbum] = useState(null);
   const [editingTimeline, setEditingTimeline] = useState(null);
   const [editingSong, setEditingSong] = useState(null);
   const [editingFavorite, setEditingFavorite] = useState(null);
 
-  const [newGallery, setNewGallery] = useState({ caption: '', image: '', tag: 'dates' });
+  const [newAlbum, setNewAlbum] = useState({ title: '', description: '', cover_image: '', tag: 'dates', color: '#f4a6c1' });
   const [newTimeline, setNewTimeline] = useState({ title: '', date: '', description: '', image: '', icon: 'favorite', is_highlight: false });
   const [newSong, setNewSong] = useState({ title: '', artist: '', link: 'https://open.spotify.com', duration: '3:30', cover_image: '' });
 
@@ -68,8 +74,11 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
           setHeroUrlInput('');
         }
       } else if (activeTab === 'gallery') {
-        const { data } = await supabase.from('gallery').select('*').neq('tag', 'hero').order('created_at', { ascending: false });
-        if (data) setGalleryList(data);
+        const { data } = await supabase.from('gallery_albums').select('*, gallery_photos(id)').order('created_at', { ascending: false });
+        if (data) setGalleryAlbums(data.map((album) => ({
+          ...album,
+          photo_count: album.gallery_photos?.length ?? 0,
+        })));
       } else if (activeTab === 'favorites') {
         // favorites are handled by app state, no Supabase table is required here
       } else if (activeTab === 'timeline') {
@@ -166,12 +175,21 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
     setLoading(false);
   };
 
-  const handlePhotoFileChange = (e) => {
+  const handleAlbumPhotoFileChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setAlbumPhotoFiles(files);
+    setAlbumPhotoPreviews(files.map((file) => URL.createObjectURL(file)));
+    setNewAlbum((prev) => ({ ...prev, cover_image: '' }));
+  };
+
+  const handleAlbumCoverFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
-    setNewGallery((prev) => ({ ...prev, image: '' }));
+    setAlbumCoverFile(file);
+    setAlbumCoverPreview(URL.createObjectURL(file));
+    setAlbumCoverUrl('');
+    setNewAlbum((prev) => ({ ...prev, cover_image: '' }));
   };
 
   const handleEditPhotoFileChange = (e) => {
@@ -194,16 +212,98 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
     if (editFavoriteAvatarFileInputRef.current) editFavoriteAvatarFileInputRef.current.value = '';
   };
 
-  const clearAddPhoto = () => {
-    setPhotoFile(null);
-    setPhotoPreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  const clearAlbumPhotos = () => {
+    setAlbumPhotoFiles([]);
+    setAlbumPhotoPreviews([]);
+    if (albumPhotoInputRef.current) albumPhotoInputRef.current.value = '';
   };
 
-  const clearEditPhoto = () => {
-    setEditPhotoFile(null);
-    setEditPhotoPreview(null);
-    if (editFileInputRef.current) editFileInputRef.current.value = '';
+  const clearAlbumCover = () => {
+    setAlbumCoverFile(null);
+    setAlbumCoverPreview(null);
+    setAlbumCoverUrl('');
+    if (albumCoverInputRef.current) albumCoverInputRef.current.value = '';
+  };
+
+  const fetchAlbumPhotos = async (albumId) => {
+    if (!isSupabaseConfigured || !albumId) return;
+    const { data, error } = await supabase
+      .from('gallery_photos')
+      .select('*')
+      .eq('album_id', albumId)
+      .order('sort_order', { ascending: true });
+    if (!error && data) {
+      setAlbumPhotos(data);
+    }
+  };
+
+  const handleSelectAlbum = async (album) => {
+    setSelectedAlbum(album);
+    await fetchAlbumPhotos(album.id);
+  };
+
+  const handleDeletePhoto = async (photoId, albumId) => {
+    if (!window.confirm('Yakin ingin menghapus foto ini dari album?')) return;
+    setLoading(true);
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('gallery_photos').delete().eq('id', photoId);
+      if (!error) {
+        setMessage('Foto dihapus dari album.');
+        await fetchAlbumPhotos(albumId);
+        fetchAdminData();
+      } else {
+        setMessage('Error: ' + error.message);
+      }
+    }
+    setLoading(false);
+  };
+
+  const handleReorderPhoto = async (photoId, direction) => {
+    const currentIndex = albumPhotos.findIndex((photo) => photo.id === photoId);
+    if (currentIndex === -1) return;
+    const nextIndex = currentIndex + direction;
+    if (nextIndex < 0 || nextIndex >= albumPhotos.length) return;
+
+    const reordered = [...albumPhotos];
+    const [moved] = reordered.splice(currentIndex, 1);
+    reordered.splice(nextIndex, 0, moved);
+    setAlbumPhotos(reordered);
+
+    if (isSupabaseConfigured) {
+      const updates = reordered.map((photo, idx) =>
+        supabase.from('gallery_photos').update({ sort_order: idx }).eq('id', photo.id)
+      );
+      await Promise.all(updates);
+    }
+  };
+
+  const handleAddPhotosToAlbum = async (e) => {
+    e.preventDefault();
+    if (!selectedAlbum || albumPhotoFiles.length === 0) return;
+    setLoading(true);
+    if (isSupabaseConfigured) {
+      const nextOrder = albumPhotos.length;
+      try {
+        for (let i = 0; i < albumPhotoFiles.length; i += 1) {
+          const file = albumPhotoFiles[i];
+          const imageUrl = await uploadPhotoToStorage(file);
+          const insertData = {
+            album_id: selectedAlbum.id,
+            image: imageUrl,
+            caption: '',
+            sort_order: nextOrder + i,
+          };
+          await supabase.from('gallery_photos').insert([insertData]);
+        }
+        setMessage('Foto baru ditambahkan ke album.');
+        clearAlbumPhotos();
+        await fetchAlbumPhotos(selectedAlbum.id);
+        fetchAdminData();
+      } catch (err) {
+        setMessage('Gagal upload foto: ' + err.message);
+      }
+    }
+    setLoading(false);
   };
 
   const handleTimelinePhotoFileChange = (e) => {
@@ -233,27 +333,50 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
     if (editTimelineFileInputRef.current) editTimelineFileInputRef.current.value = '';
   };
 
-  const handleAddGallery = async (e) => {
+  const handleSaveAlbum = async (e) => {
     e.preventDefault();
-    if (!newGallery.caption) return;
+    if (!newAlbum.title) return;
     setLoading(true);
-    if (isSupabaseConfigured) {
-      let imageUrl = newGallery.image;
-      if (photoFile) {
-        setUploadingPhoto(true);
-        try { imageUrl = await uploadPhotoToStorage(photoFile); }
-        catch (err) { setMessage('Gagal upload foto: ' + err.message); setLoading(false); setUploadingPhoto(false); return; }
+    if (!isSupabaseConfigured) {
+      setMessage('Mode demo: Supabase belum terhubung!');
+      setLoading(false);
+      return;
+    }
+
+    let coverUrl = newAlbum.cover_image || albumCoverUrl;
+    if (albumCoverFile) {
+      setUploadingPhoto(true);
+      try {
+        coverUrl = await uploadPhotoToStorage(albumCoverFile);
+      } catch (err) {
+        setMessage('Gagal upload cover album: ' + err.message);
+        setLoading(false);
         setUploadingPhoto(false);
+        return;
       }
-      const { error } = await supabase.from('gallery').insert([{ ...newGallery, image: imageUrl }]);
-      if (!error) {
-        setMessage('Foto berhasil ditambahkan! 📸');
-        setNewGallery({ caption: '', image: '', tag: 'dates' });
-        clearAddPhoto();
-        fetchAdminData();
-        if (onDataChange) onDataChange();
-      } else setMessage('Error: ' + error.message);
-    } else setMessage('Mode demo: Supabase belum terhubung!');
+      setUploadingPhoto(false);
+    }
+
+    const albumPayload = {
+      title: newAlbum.title,
+      description: newAlbum.description,
+      tag: newAlbum.tag,
+      cover_image: coverUrl,
+      color: newAlbum.color,
+    };
+
+    const { data, error } = await supabase.from('gallery_albums').insert([albumPayload]);
+    if (!error && data && data.length > 0) {
+      setMessage('Album berhasil dibuat! 📸');
+      setNewAlbum({ title: '', description: '', cover_image: '', tag: 'dates', color: '#f4a6c1' });
+      clearAlbumCover();
+      fetchAdminData();
+      setSelectedAlbum(data[0]);
+      setAlbumPhotos([]);
+      if (onDataChange) onDataChange();
+    } else {
+      setMessage('Error: ' + (error?.message || 'Gagal membuat album'));
+    }
     setLoading(false);
   };
 
@@ -397,27 +520,6 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
     onClose();
   };
 
-  const handleUpdateGallery = async (e) => {
-    e.preventDefault();
-    if (!editingGallery) return;
-    setLoading(true);
-    if (isSupabaseConfigured) {
-      let imageUrl = editingGallery.image;
-      if (editPhotoFile) {
-        setUploadingPhoto(true);
-        try { imageUrl = await uploadPhotoToStorage(editPhotoFile); }
-        catch (err) { setMessage('Gagal upload foto: ' + err.message); setLoading(false); setUploadingPhoto(false); return; }
-        setUploadingPhoto(false);
-      }
-      const { error } = await supabase.from('gallery')
-        .update({ caption: editingGallery.caption, image: imageUrl, tag: editingGallery.tag })
-        .eq('id', editingGallery.id);
-      if (!error) { setMessage('Foto diperbarui! ✏️'); setEditingGallery(null); clearEditPhoto(); fetchAdminData(); if (onDataChange) onDataChange(); }
-      else setMessage('Error: ' + error.message);
-    }
-    setLoading(false);
-  };
-
   const handleUpdateTimeline = async (e) => {
     e.preventDefault();
     if (!editingTimeline) return;
@@ -534,7 +636,16 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
                   { id: 'letter', label: '💌 Surat' },
                 ].map((tab) => (
                   <button key={tab.id}
-                    onClick={() => { setActiveTab(tab.id); setEditingGallery(null); setEditingTimeline(null); setEditingSong(null); setEditingFavorite(null); }}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      setSelectedAlbum(null);
+                      setAlbumPhotos([]);
+                      clearAlbumPhotos();
+                      clearAlbumCover();
+                      setEditingTimeline(null);
+                      setEditingSong(null);
+                      setEditingFavorite(null);
+                    }}
                     className={`font-[Hanken_Grotesk] text-xs font-bold uppercase tracking-wider px-4 py-2 border-t-2 border-x-2 border-[#111111] transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-[#ff6fa5] text-white comic-shadow-sm' : 'bg-white text-[#1d1b18] hover:bg-[#f4a6c1]'}`}>
                     {tab.label}
                   </button>
@@ -714,118 +825,176 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
               {/* ── GALLERY TAB ── */}
               {activeTab === 'gallery' && (
                 <div className="space-y-6">
-                  <form onSubmit={handleAddGallery} className="bg-white border-2 border-[#111111] p-4 comic-shadow space-y-3">
-                    <h3 className="font-[Anybody] text-sm font-black uppercase text-[#aa2c62]">➕ Tambah Foto Gallery Baru</h3>
-                    <div>
-                      <label className={lCls}>Caption Foto:</label>
-                      <input type="text" placeholder="Dinner seru di cafe romantis 🤍" value={newGallery.caption}
-                        onChange={(e) => setNewGallery({ ...newGallery, caption: e.target.value })} className={iCls} required />
-                    </div>
-                    <div>
-                      <label className={lCls}>📷 Upload Foto dari Perangkat:</label>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <button type="button" onClick={() => fileInputRef.current?.click()}
-                          className="flex items-center gap-1.5 bg-[#ff6fa5] text-white font-[Anybody] font-black text-xs uppercase px-3 py-2 border-2 border-[#111111] comic-shadow-sm hover:scale-105 transition-transform">
-                          <span className="material-symbols-outlined text-sm">photo_camera</span>
-                          Pilih Foto
-                        </button>
-                        {photoPreview && <button type="button" onClick={clearAddPhoto} className="text-xs text-red-500 font-bold underline font-[Hanken_Grotesk]">Hapus Foto</button>}
+                  <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                    <form onSubmit={handleSaveAlbum} className="bg-white border-2 border-[#111111] p-4 comic-shadow space-y-3">
+                      <h3 className="font-[Anybody] text-sm font-black uppercase text-[#aa2c62]">➕ Buat Album Gallery Baru</h3>
+                      <div>
+                        <label className={lCls}>Judul Album:</label>
+                        <input type="text" placeholder="Album Kenangan Romantis" value={newAlbum.title}
+                          onChange={(e) => setNewAlbum({ ...newAlbum, title: e.target.value })} className={iCls} required />
                       </div>
-                      <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoFileChange} className="hidden" />
-                      {photoPreview && (
-                        <div className="mt-2 flex items-center gap-3">
-                          <img src={photoPreview} alt="Preview" className="h-20 w-20 object-cover border-2 border-[#111111] comic-shadow-sm" />
-                          <p className="text-[10px] text-[#514347] font-[Hanken_Grotesk]">✅ Foto siap diupload</p>
+                      <div>
+                        <label className={lCls}>Deskripsi Album:</label>
+                        <textarea placeholder="Cerita singkat album ini..." value={newAlbum.description}
+                          onChange={(e) => setNewAlbum({ ...newAlbum, description: e.target.value })} className={iCls + ' h-20 resize-none'} />
+                      </div>
+                      <div>
+                        <label className={lCls}>Cover Album:</label>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button type="button" onClick={() => albumCoverInputRef.current?.click()}
+                            className="flex items-center gap-1.5 bg-[#ff6fa5] text-white font-[Anybody] font-black text-xs uppercase px-3 py-2 border-2 border-[#111111] comic-shadow-sm hover:scale-105 transition-transform">
+                            <span className="material-symbols-outlined text-sm">photo_camera</span>
+                            Pilih Cover
+                          </button>
+                          {albumCoverPreview && <button type="button" onClick={clearAlbumCover} className="text-xs text-red-500 font-bold underline font-[Hanken_Grotesk]">Hapus Cover</button>}
                         </div>
-                      )}
-                      {!photoFile && (
-                        <div className="mt-2">
-                          <label className="text-[10px] text-[#514347] font-[Hanken_Grotesk] uppercase font-bold">— atau masukkan URL foto:</label>
-                          <input type="text" placeholder="https://... atau /images/..." value={newGallery.image}
-                            onChange={(e) => setNewGallery({ ...newGallery, image: e.target.value })} className={iCls + ' mt-1'} />
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <label className={lCls}>Tag / Kategori:</label>
-                      <select value={newGallery.tag} onChange={(e) => setNewGallery({ ...newGallery, tag: e.target.value })} className={iCls}>
-                        <option value="dates">dates</option>
-                        <option value="travel">travel</option>
-                        <option value="random">random</option>
-                      </select>
-                    </div>
-                    <button type="submit" disabled={loading}
-                      className="bg-[#00f0ff] text-[#111111] font-[Anybody] font-black text-xs uppercase px-4 py-2 border-2 border-[#111111] comic-shadow-sm hover:scale-105 transition-transform disabled:opacity-50">
-                      {uploadingPhoto ? '⏳ MENGUPLOAD FOTO...' : loading ? 'MENYIMPAN...' : 'TAMBAH FOTO 🕸️'}
-                    </button>
-                  </form>
+                        <input ref={albumCoverInputRef} type="file" accept="image/*" onChange={handleAlbumCoverFileChange} className="hidden" />
+                        {albumCoverPreview && (
+                          <div className="mt-2 flex items-center gap-3">
+                            <img src={albumCoverPreview} alt="Cover preview" className="h-20 w-20 object-cover border-2 border-[#111111] comic-shadow-sm" />
+                            <p className="text-[10px] text-[#514347] font-[Hanken_Grotesk]">✅ Cover siap dipakai</p>
+                          </div>
+                        )}
+                        {!albumCoverFile && (
+                          <div className="mt-2">
+                            <label className="text-[10px] text-[#514347] font-[Hanken_Grotesk] uppercase font-bold">— atau masukkan URL cover:</label>
+                            <input type="text" placeholder="https://..." value={albumCoverUrl}
+                              onChange={(e) => setAlbumCoverUrl(e.target.value)} className={iCls + ' mt-1'} />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className={lCls}>Tag / Kategori:</label>
+                        <select value={newAlbum.tag} onChange={(e) => setNewAlbum({ ...newAlbum, tag: e.target.value })} className={iCls}>
+                          <option value="dates">dates</option>
+                          <option value="travel">travel</option>
+                          <option value="random">random</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={lCls}>Warna Album:</label>
+                        <input type="color" value={newAlbum.color}
+                          onChange={(e) => setNewAlbum({ ...newAlbum, color: e.target.value })} className={iCls + ' h-10 p-0'} />
+                      </div>
+                      <button type="submit" disabled={loading}
+                        className="bg-[#00f0ff] text-[#111111] font-[Anybody] font-black text-xs uppercase px-4 py-2 border-2 border-[#111111] comic-shadow-sm hover:scale-105 transition-transform disabled:opacity-50">
+                        {uploadingPhoto ? '⏳ MENGUPLOAD...' : loading ? 'MENYIMPAN...' : 'BUAT ALBUM BARU'}
+                      </button>
+                    </form>
 
-                  <div>
-                    <h4 className="font-[Anybody] text-xs font-black uppercase mb-2">Daftar Foto Terpasang:</h4>
-                    <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                      {galleryList.length === 0 ? (
-                        <p className="text-xs italic text-[#514347]">Belum ada item.</p>
-                      ) : galleryList.map((item) => (
-                        <div key={item.id} className="bg-white border border-[#111111]">
-                          {editingGallery?.id === item.id ? (
-                            <form onSubmit={handleUpdateGallery} className="p-3 space-y-2">
-                              <p className="text-[10px] font-black font-[Anybody] uppercase text-[#aa2c62]">✏️ Edit Foto</p>
-                              <input type="text" value={editingGallery.caption}
-                                onChange={(e) => setEditingGallery({ ...editingGallery, caption: e.target.value })} className={iCls} placeholder="Caption" />
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <button type="button" onClick={() => editFileInputRef.current?.click()}
-                                  className="flex items-center gap-1 bg-[#f4a6c1] text-[#111111] font-[Anybody] font-black text-[10px] uppercase px-2 py-1.5 border border-[#111111] hover:scale-105 transition-transform">
-                                  <span className="material-symbols-outlined text-xs">photo_camera</span> Ganti Foto
-                                </button>
-                                <input ref={editFileInputRef} type="file" accept="image/*" onChange={handleEditPhotoFileChange} className="hidden" />
-                                {editPhotoPreview && (
-                                  <>
-                                    <img src={editPhotoPreview} alt="Preview" className="h-10 w-10 object-cover border border-[#111111]" />
-                                    <button type="button" onClick={clearEditPhoto} className="text-[10px] text-red-500 font-bold underline">Hapus</button>
-                                  </>
-                                )}
-                              </div>
-                              {!editPhotoFile && (
-                                <input type="text" value={editingGallery.image || ''}
-                                  onChange={(e) => setEditingGallery({ ...editingGallery, image: e.target.value })} className={iCls} placeholder="URL Foto" />
-                              )}
-                              <select value={editingGallery.tag} onChange={(e) => setEditingGallery({ ...editingGallery, tag: e.target.value })} className={iCls}>
-                                <option value="dates">dates</option>
-                                <option value="travel">travel</option>
-                                <option value="random">random</option>
-                              </select>
-                              <div className="flex gap-2">
-                                <button type="submit" disabled={loading} className="bg-[#00f0ff] text-[#111111] font-[Anybody] font-black text-[10px] uppercase px-3 py-1.5 border border-[#111111] disabled:opacity-50">
-                                  {uploadingPhoto ? '⏳ UPLOAD...' : 'SIMPAN ✓'}
-                                </button>
-                                <button type="button" onClick={() => { setEditingGallery(null); clearEditPhoto(); }}
-                                  className="bg-white text-[#111111] font-[Anybody] font-black text-[10px] uppercase px-3 py-1.5 border border-[#111111]">BATAL</button>
-                              </div>
-                            </form>
-                          ) : (
-                            <div className="flex items-center justify-between p-2.5 text-xs gap-2">
-                              <div className="flex items-center gap-2 min-w-0">
-                                {item.image && (
-                                  <img src={item.image} alt="" className="h-9 w-9 object-cover border border-[#111111] flex-shrink-0"
-                                    onError={(e) => { e.target.style.display = 'none'; }} />
-                                )}
-                                <div className="truncate">
-                                  <span className="font-bold">{item.caption}</span>
-                                  <span className="ml-2 text-[10px] bg-[#111111] text-white px-1.5 py-0.5 uppercase">{item.tag}</span>
+                    <div className="bg-white border-2 border-[#111111] p-4 comic-shadow space-y-3">
+                      <h3 className="font-[Anybody] text-sm font-black uppercase text-[#aa2c62]">📚 Album Tersimpan</h3>
+                      <div className="space-y-2 max-h-[32rem] overflow-y-auto pr-1">
+                        {galleryAlbums.length === 0 ? (
+                          <p className="text-xs italic text-[#514347]">Belum ada album. Buat album baru untuk mulai mengisi foto.</p>
+                        ) : galleryAlbums.map((album) => (
+                          <div key={album.id} className="border border-[#111111] bg-[#fff8f3] p-3">
+                            <div className="flex items-start gap-3">
+                              {album.cover_image ? (
+                                <img src={album.cover_image} alt={album.title} className="h-16 w-16 object-cover border border-[#111111]" />
+                              ) : (
+                                <div className="h-16 w-16 bg-[#f4a6c1] border border-[#111111] flex items-center justify-center text-[#1d1b18]">
+                                  <span className="material-symbols-outlined">photo_camera</span>
                                 </div>
+                              )}
+                              <div className="min-w-0">
+                                <p className="font-bold truncate">{album.title}</p>
+                                <p className="text-[10px] text-[#514347] truncate">{album.description || 'Tanpa deskripsi'}</p>
+                                <p className="text-[10px] uppercase tracking-[0.2em] mt-1">{album.photo_count ?? 0} foto · {album.tag}</p>
                               </div>
-                              <div className="flex gap-1 flex-shrink-0">
-                                <button onClick={() => { setEditingGallery({ ...item }); clearEditPhoto(); }}
-                                  className="bg-[#00f0ff] text-[#111111] font-bold px-2 py-1 text-[10px] border border-[#111111] hover:scale-105 transition-transform">EDIT ✏️</button>
-                                <button onClick={() => handleDeleteItem('gallery', item.id)}
-                                  className="bg-red-500 text-white font-bold px-2 py-1 text-[10px] border border-[#111111] hover:scale-105 transition-transform">HAPUS 🗑️</button>
-                              </div>
+                            </div>
+                            <div className="flex gap-2 mt-3 flex-wrap">
+                              <button type="button" onClick={() => handleSelectAlbum(album)}
+                                className="bg-[#ff6fa5] text-white font-[Anybody] font-black text-[10px] uppercase px-3 py-1.5 border-2 border-[#111111] hover:scale-105 transition-transform">
+                                Kelola Album
+                              </button>
+                              <button type="button" onClick={() => handleDeleteItem('gallery_albums', album.id)}
+                                className="bg-red-500 text-white font-[Anybody] font-black text-[10px] uppercase px-3 py-1.5 border-2 border-[#111111] hover:scale-105 transition-transform">
+                                Hapus Album
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedAlbum && (
+                    <div className="bg-white border-2 border-[#111111] p-4 comic-shadow space-y-4">
+                      <div>
+                        <h3 className="font-[Anybody] text-sm font-black uppercase text-[#aa2c62]">📸 Kelola Album: {selectedAlbum.title}</h3>
+                        <p className="text-xs text-[#514347]">{selectedAlbum.description || 'Tidak ada deskripsi album.'}</p>
+                      </div>
+                      <form onSubmit={handleAddPhotosToAlbum} className="space-y-3">
+                        <div>
+                          <label className={lCls}>Upload Foto ke Album:</label>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button type="button" onClick={() => albumPhotoInputRef.current?.click()}
+                              className="flex items-center gap-1.5 bg-[#ff6fa5] text-white font-[Anybody] font-black text-xs uppercase px-3 py-2 border-2 border-[#111111] comic-shadow-sm hover:scale-105 transition-transform">
+                              <span className="material-symbols-outlined text-sm">photo_camera</span>
+                              Pilih Foto
+                            </button>
+                            {albumPhotoFiles.length > 0 && (
+                              <button type="button" onClick={clearAlbumPhotos} className="text-xs text-red-500 font-bold underline font-[Hanken_Grotesk]">Batal Pilih</button>
+                            )}
+                          </div>
+                          <input ref={albumPhotoInputRef} type="file" accept="image/*" multiple onChange={handleAlbumPhotoFileChange} className="hidden" />
+                          {albumPhotoPreviews.length > 0 && (
+                            <div className="mt-2 grid grid-cols-3 gap-2">
+                              {albumPhotoPreviews.map((preview, idx) => (
+                                <img key={idx} src={preview} alt={`Preview ${idx + 1}`} className="h-20 w-full object-cover border-2 border-[#111111]" />
+                              ))}
                             </div>
                           )}
                         </div>
-                      ))}
+                        <button type="submit" disabled={loading || albumPhotoFiles.length === 0}
+                          className="bg-[#00f0ff] text-[#111111] font-[Anybody] font-black text-xs uppercase px-4 py-2 border-2 border-[#111111] comic-shadow-sm hover:scale-105 transition-transform disabled:opacity-50">
+                          {loading ? 'MENYIMPAN...' : `TAMBAH ${albumPhotoFiles.length || '0'} FOTO KE ALBUM`}
+                        </button>
+                      </form>
+
+                      <div>
+                        <h4 className="font-[Anybody] text-xs font-black uppercase mb-2">Foto di Album Ini</h4>
+                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                          {albumPhotos.length === 0 ? (
+                            <p className="text-xs italic text-[#514347]">Belum ada foto di album ini.</p>
+                          ) : albumPhotos.map((photo, index) => (
+                            <div key={photo.id} className="bg-[#fff8f3] border border-[#111111] p-3">
+                              <div className="flex items-center gap-3">
+                                {photo.image ? (
+                                  <img src={photo.image} alt={photo.caption || selectedAlbum.title} className="h-16 w-16 object-cover border border-[#111111]" />
+                                ) : (
+                                  <div className="h-16 w-16 bg-[#f4a6c1] border border-[#111111] flex items-center justify-center text-[#1d1b18]">
+                                    <span className="material-symbols-outlined">photo_camera</span>
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="font-bold truncate">{photo.caption || 'Tanpa caption'}</p>
+                                  <p className="text-[10px] text-[#514347]">Urutan: {photo.sort_order ?? index + 1}</p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 mt-3 flex-wrap">
+                                <button type="button" onClick={() => handleReorderPhoto(photo.id, -1)}
+                                  disabled={index === 0}
+                                  className="bg-[#00f0ff] text-[#111111] font-[Anybody] font-black text-[10px] uppercase px-3 py-1.5 border-2 border-[#111111] hover:scale-105 transition-transform disabled:opacity-50">
+                                  Atas
+                                </button>
+                                <button type="button" onClick={() => handleReorderPhoto(photo.id, 1)}
+                                  disabled={index === albumPhotos.length - 1}
+                                  className="bg-[#00f0ff] text-[#111111] font-[Anybody] font-black text-[10px] uppercase px-3 py-1.5 border-2 border-[#111111] hover:scale-105 transition-transform disabled:opacity-50">
+                                  Bawah
+                                </button>
+                                <button type="button" onClick={() => handleDeletePhoto(photo.id, selectedAlbum.id)}
+                                  className="bg-red-500 text-white font-[Anybody] font-black text-[10px] uppercase px-3 py-1.5 border-2 border-[#111111] hover:scale-105 transition-transform">
+                                  Hapus Foto
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
