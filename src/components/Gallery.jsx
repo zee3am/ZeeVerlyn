@@ -6,9 +6,9 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import AlbumView from './AlbumView';
 
 function GalleryCard({ album, onClick, index }) {
-  const coverImage = album.cover_image;
+  const coverImage = album.coverImage;
   const title = album.title || album.albumName || 'Album';
-  const description = album.description || album.caption || 'Our favourite moments';
+  const description = album.description || 'Our favourite moments';
   const photoCount = album.photo_count ?? album.photos?.length ?? 0;
 
   return (
@@ -85,19 +85,44 @@ export default function Gallery({ refreshTrigger }) {
     if (!isSupabaseConfigured) return;
 
     const fetchAlbums = async () => {
-      const { data, error } = await supabase
-        .from('gallery_albums')
-        .select('*, gallery_photos(id)')
-        .order('created_at', { ascending: false });
+      try {
+        const { data, error } = await supabase
+          .from('gallery_albums')
+          .select('*, gallery_photos(id, image, sort_order, created_at)')
+          .order('created_at', { ascending: false });
 
-      if (!error && data) {
-        setAlbums(data.map((album) => ({
-          ...album,
-          photo_count: album.gallery_photos?.length ?? 0,
-        })));
+        if (error) {
+          console.error('Failed to load gallery albums from Supabase:', error);
+          return;
+        }
+
+        if (data) {
+          setAlbums(data.map((album) => {
+            let coverImage = null;
+            if (album.gallery_photos && album.gallery_photos.length > 0) {
+              const sorted = [...album.gallery_photos].sort((a, b) => {
+                const aOrder = a.sort_order == null ? Number.MAX_SAFE_INTEGER : a.sort_order;
+                const bOrder = b.sort_order == null ? Number.MAX_SAFE_INTEGER : b.sort_order;
+                if (aOrder !== bOrder) return aOrder - bOrder;
+                const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+                const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+                return aTime - bTime;
+              });
+              coverImage = sorted[0]?.image || null;
+            }
+            return {
+              ...album,
+              photo_count: album.gallery_photos?.length ?? 0,
+              coverImage,
+            };
+          }));
+        }
+      } catch (err) {
+        console.error('Error fetching gallery albums:', err);
       }
     };
 
+    // initial fetch
     fetchAlbums();
 
     const channel = supabase
@@ -106,7 +131,15 @@ export default function Gallery({ refreshTrigger }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery_photos' }, fetchAlbums)
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
+    // Polling fallback: if websocket realtime fails, keep polling every 10s
+    const pollId = setInterval(() => {
+      fetchAlbums();
+    }, 10000);
+
+    return () => {
+      clearInterval(pollId);
+      try { supabase.removeChannel(channel); } catch (err) { console.error('Error removing channel:', err); }
+    };
   }, [refreshTrigger]);
 
   const fallbackAlbums = Object.values(
@@ -115,9 +148,9 @@ export default function Gallery({ refreshTrigger }) {
       if (!acc[key]) {
         acc[key] = {
           id: key,
-          title: item.album || item.caption,
+          title: item.album || 'Album',
           description: '',
-          cover_image: item.image,
+          coverImage: item.image,
           tag: item.tag,
           color: item.color,
           photo_count: 0,

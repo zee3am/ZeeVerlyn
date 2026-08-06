@@ -15,10 +15,7 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
   const [albumPhotoFiles, setAlbumPhotoFiles] = useState([]);
   const [albumPhotoPreviews, setAlbumPhotoPreviews] = useState([]);
   const albumPhotoInputRef = useRef(null);
-  const [albumCoverFile, setAlbumCoverFile] = useState(null);
-  const [albumCoverPreview, setAlbumCoverPreview] = useState(null);
-  const albumCoverInputRef = useRef(null);
-  const [albumCoverUrl, setAlbumCoverUrl] = useState('');
+  // cover_image removed from schema: no cover file/url state
 
   const [timelineList, setTimelineList] = useState([]);
   const [playlistList, setPlaylistList] = useState([]);
@@ -52,7 +49,7 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
   const [editingSong, setEditingSong] = useState(null);
   const [editingFavorite, setEditingFavorite] = useState(null);
 
-  const [newAlbum, setNewAlbum] = useState({ title: '', description: '', cover_image: '', tag: 'dates', color: '#f4a6c1' });
+  const [newAlbum, setNewAlbum] = useState({ title: '', description: '', tag: 'dates', color: '#f4a6c1' });
   const [newTimeline, setNewTimeline] = useState({ title: '', date: '', description: '', image: '', icon: 'favorite', is_highlight: false });
   const [newSong, setNewSong] = useState({ title: '', artist: '', link: 'https://open.spotify.com', duration: '3:30', cover_image: '' });
 
@@ -74,10 +71,20 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
           setHeroUrlInput('');
         }
       } else if (activeTab === 'gallery') {
-        const { data } = await supabase.from('gallery_albums').select('*, gallery_photos(id)').order('created_at', { ascending: false });
+        const { data } = await supabase.from('gallery_albums').select('*, gallery_photos(id, image, sort_order, created_at)').order('created_at', { ascending: false });
         if (data) setGalleryAlbums(data.map((album) => ({
           ...album,
           photo_count: album.gallery_photos?.length ?? 0,
+          coverImage: (album.gallery_photos && album.gallery_photos.length > 0) ? (
+            [...album.gallery_photos].sort((a, b) => {
+              const aOrder = (a.sort_order == null) ? Number.MAX_SAFE_INTEGER : a.sort_order;
+              const bOrder = (b.sort_order == null) ? Number.MAX_SAFE_INTEGER : b.sort_order;
+              if (aOrder !== bOrder) return aOrder - bOrder;
+              const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+              const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+              return aTime - bTime;
+            })[0]?.image
+          ) : null,
         })));
       } else if (activeTab === 'favorites') {
         // favorites are handled by app state, no Supabase table is required here
@@ -180,16 +187,7 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
     if (files.length === 0) return;
     setAlbumPhotoFiles(files);
     setAlbumPhotoPreviews(files.map((file) => URL.createObjectURL(file)));
-    setNewAlbum((prev) => ({ ...prev, cover_image: '' }));
-  };
-
-  const handleAlbumCoverFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setAlbumCoverFile(file);
-    setAlbumCoverPreview(URL.createObjectURL(file));
-    setAlbumCoverUrl('');
-    setNewAlbum((prev) => ({ ...prev, cover_image: '' }));
+     setNewAlbum((prev) => ({ ...prev }));
   };
 
   const handleEditPhotoFileChange = (e) => {
@@ -216,13 +214,6 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
     setAlbumPhotoFiles([]);
     setAlbumPhotoPreviews([]);
     if (albumPhotoInputRef.current) albumPhotoInputRef.current.value = '';
-  };
-
-  const clearAlbumCover = () => {
-    setAlbumCoverFile(null);
-    setAlbumCoverPreview(null);
-    setAlbumCoverUrl('');
-    if (albumCoverInputRef.current) albumCoverInputRef.current.value = '';
   };
 
   const fetchAlbumPhotos = async (albumId) => {
@@ -290,7 +281,6 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
           const insertData = {
             album_id: selectedAlbum.id,
             image: imageUrl,
-            caption: '',
             sort_order: nextOrder + i,
           };
           await supabase.from('gallery_photos').insert([insertData]);
@@ -343,33 +333,17 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
       return;
     }
 
-    let coverUrl = newAlbum.cover_image || albumCoverUrl;
-    if (albumCoverFile) {
-      setUploadingPhoto(true);
-      try {
-        coverUrl = await uploadPhotoToStorage(albumCoverFile);
-      } catch (err) {
-        setMessage('Gagal upload cover album: ' + err.message);
-        setLoading(false);
-        setUploadingPhoto(false);
-        return;
-      }
-      setUploadingPhoto(false);
-    }
-
     const albumPayload = {
       title: newAlbum.title,
       description: newAlbum.description,
       tag: newAlbum.tag,
-      cover_image: coverUrl,
       color: newAlbum.color,
     };
 
-    const { data, error } = await supabase.from('gallery_albums').insert([albumPayload]);
+    const { data, error } = await supabase.from('gallery_albums').insert([albumPayload]).select();
     if (!error && data && data.length > 0) {
       setMessage('Album berhasil dibuat! 📸');
-      setNewAlbum({ title: '', description: '', cover_image: '', tag: 'dates', color: '#f4a6c1' });
-      clearAlbumCover();
+      setNewAlbum({ title: '', description: '', tag: 'dates', color: '#f4a6c1' });
       fetchAdminData();
       setSelectedAlbum(data[0]);
       setAlbumPhotos([]);
@@ -641,7 +615,6 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
                       setSelectedAlbum(null);
                       setAlbumPhotos([]);
                       clearAlbumPhotos();
-                      clearAlbumCover();
                       setEditingTimeline(null);
                       setEditingSong(null);
                       setEditingFavorite(null);
@@ -839,31 +812,6 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
                           onChange={(e) => setNewAlbum({ ...newAlbum, description: e.target.value })} className={iCls + ' h-20 resize-none'} />
                       </div>
                       <div>
-                        <label className={lCls}>Cover Album:</label>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <button type="button" onClick={() => albumCoverInputRef.current?.click()}
-                            className="flex items-center gap-1.5 bg-[#ff6fa5] text-white font-[Anybody] font-black text-xs uppercase px-3 py-2 border-2 border-[#111111] comic-shadow-sm hover:scale-105 transition-transform">
-                            <span className="material-symbols-outlined text-sm">photo_camera</span>
-                            Pilih Cover
-                          </button>
-                          {albumCoverPreview && <button type="button" onClick={clearAlbumCover} className="text-xs text-red-500 font-bold underline font-[Hanken_Grotesk]">Hapus Cover</button>}
-                        </div>
-                        <input ref={albumCoverInputRef} type="file" accept="image/*" onChange={handleAlbumCoverFileChange} className="hidden" />
-                        {albumCoverPreview && (
-                          <div className="mt-2 flex items-center gap-3">
-                            <img src={albumCoverPreview} alt="Cover preview" className="h-20 w-20 object-cover border-2 border-[#111111] comic-shadow-sm" />
-                            <p className="text-[10px] text-[#514347] font-[Hanken_Grotesk]">✅ Cover siap dipakai</p>
-                          </div>
-                        )}
-                        {!albumCoverFile && (
-                          <div className="mt-2">
-                            <label className="text-[10px] text-[#514347] font-[Hanken_Grotesk] uppercase font-bold">— atau masukkan URL cover:</label>
-                            <input type="text" placeholder="https://..." value={albumCoverUrl}
-                              onChange={(e) => setAlbumCoverUrl(e.target.value)} className={iCls + ' mt-1'} />
-                          </div>
-                        )}
-                      </div>
-                      <div>
                         <label className={lCls}>Tag / Kategori:</label>
                         <select value={newAlbum.tag} onChange={(e) => setNewAlbum({ ...newAlbum, tag: e.target.value })} className={iCls}>
                           <option value="dates">dates</option>
@@ -878,7 +826,7 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
                       </div>
                       <button type="submit" disabled={loading}
                         className="bg-[#00f0ff] text-[#111111] font-[Anybody] font-black text-xs uppercase px-4 py-2 border-2 border-[#111111] comic-shadow-sm hover:scale-105 transition-transform disabled:opacity-50">
-                        {uploadingPhoto ? '⏳ MENGUPLOAD...' : loading ? 'MENYIMPAN...' : 'BUAT ALBUM BARU'}
+                        {loading ? 'MENYIMPAN...' : 'BUAT ALBUM BARU'}
                       </button>
                     </form>
 
@@ -890,8 +838,8 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
                         ) : galleryAlbums.map((album) => (
                           <div key={album.id} className="border border-[#111111] bg-[#fff8f3] p-3">
                             <div className="flex items-start gap-3">
-                              {album.cover_image ? (
-                                <img src={album.cover_image} alt={album.title} className="h-16 w-16 object-cover border border-[#111111]" />
+                              {album.coverImage ? (
+                                <img src={album.coverImage} alt={album.title} className="h-16 w-16 object-cover border border-[#111111]" />
                               ) : (
                                 <div className="h-16 w-16 bg-[#f4a6c1] border border-[#111111] flex items-center justify-center text-[#1d1b18]">
                                   <span className="material-symbols-outlined">photo_camera</span>
@@ -962,14 +910,14 @@ export default function AdminModal({ isOpen, onClose, onDataChange, favoriteCard
                             <div key={photo.id} className="bg-[#fff8f3] border border-[#111111] p-3">
                               <div className="flex items-center gap-3">
                                 {photo.image ? (
-                                  <img src={photo.image} alt={photo.caption || selectedAlbum.title} className="h-16 w-16 object-cover border border-[#111111]" />
+                                  <img src={photo.image} alt={selectedAlbum.title} className="h-16 w-16 object-cover border border-[#111111]" />
                                 ) : (
                                   <div className="h-16 w-16 bg-[#f4a6c1] border border-[#111111] flex items-center justify-center text-[#1d1b18]">
                                     <span className="material-symbols-outlined">photo_camera</span>
                                   </div>
                                 )}
                                 <div className="min-w-0">
-                                  <p className="font-bold truncate">{photo.caption || 'Tanpa caption'}</p>
+                                  <p className="font-bold truncate">Foto #{index + 1}</p>
                                   <p className="text-[10px] text-[#514347]">Urutan: {photo.sort_order ?? index + 1}</p>
                                 </div>
                               </div>

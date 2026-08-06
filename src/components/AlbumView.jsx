@@ -36,12 +36,20 @@ export default function AlbumView({ album, onClose }) {
     if (!isSupabaseConfigured || !album?.id) return;
 
     const fetchPhotos = async () => {
-      const { data, error } = await supabase
-        .from('gallery_photos')
-        .select('*')
-        .eq('album_id', album.id)
-        .order('sort_order', { ascending: true });
-      if (!error && data) setPhotos(data);
+      try {
+        const { data, error } = await supabase
+          .from('gallery_photos')
+          .select('*')
+          .eq('album_id', album.id)
+          .order('sort_order', { ascending: true });
+        if (error) {
+          console.error('Failed to load photos for album', album.id, error);
+          return;
+        }
+        if (data) setPhotos(data);
+      } catch (err) {
+        console.error('Error fetching album photos for', album.id, err);
+      }
     };
 
     // initial fetch
@@ -53,14 +61,25 @@ export default function AlbumView({ album, onClose }) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'gallery_photos', filter: `album_id=eq.${album.id}` },
-        () => {
-          fetchPhotos();
+        async () => {
+          // refetch safely on any change
+          await fetchPhotos();
         }
       )
       .subscribe();
 
+    // Polling fallback: refetch every 10s in case realtime websocket fails
+    const pollId = setInterval(() => {
+      fetchPhotos();
+    }, 10000);
+
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(pollId);
+      try {
+        supabase.removeChannel(channel);
+      } catch (err) {
+        console.error('Error removing album photos channel:', err);
+      }
     };
   }, [album]);
 
@@ -177,17 +196,12 @@ export default function AlbumView({ album, onClose }) {
                   className="snap-center min-w-[80vw] sm:min-w-[55vw] lg:min-w-[40vw] border-2 border-[#111111] bg-[#fff8f3] overflow-hidden"
                 >
                   {photo.image ? (
-                    <img src={photo.image} alt={photo.caption || album.title} className="w-full h-[60vh] sm:h-[70vh] object-cover" />
+                    <img src={photo.image} alt={album.title || 'Foto'} className="w-full h-[60vh] sm:h-[70vh] object-cover" />
                   ) : (
                     <div className="h-[60vh] sm:h-[70vh] flex items-center justify-center bg-[#f4a6c1]">
                       <span className="material-symbols-outlined text-5xl text-[#1d1b18] opacity-40">photo_camera</span>
                     </div>
                   )}
-                  <div className="p-4 bg-[#fff8f3] border-t border-[#111111]">
-                    <p className="font-[Bricolage_Grotesque] text-sm italic text-[#1d1b18]">
-                      {photo.caption || album.title || 'Foto tanpa caption'}
-                    </p>
-                  </div>
                 </div>
               ))}
             </div>
