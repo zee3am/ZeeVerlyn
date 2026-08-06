@@ -32,6 +32,38 @@ export default function AlbumView({ album, onClose }) {
     fetchPhotos();
   }, [album]);
 
+  useEffect(() => {
+    if (!isSupabaseConfigured || !album?.id) return;
+
+    const fetchPhotos = async () => {
+      const { data, error } = await supabase
+        .from('gallery_photos')
+        .select('*')
+        .eq('album_id', album.id)
+        .order('sort_order', { ascending: true });
+      if (!error && data) setPhotos(data);
+    };
+
+    // initial fetch
+    fetchPhotos();
+
+    // subscribe to realtime changes for this album's photos
+    const channel = supabase
+      .channel(`album-photos-${album.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'gallery_photos', filter: `album_id=eq.${album.id}` },
+        () => {
+          fetchPhotos();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [album]);
+
   const scrollToIndex = (index) => {
     if (!scrollRef.current || !photos[index]) return;
     const child = scrollRef.current.children[index];
