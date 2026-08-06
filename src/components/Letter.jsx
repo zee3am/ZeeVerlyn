@@ -38,6 +38,20 @@ export default function Letter({ refreshTrigger }) {
     };
 
     fetchLetter();
+
+    let channel;
+    if (isSupabaseConfigured) {
+      channel = supabase
+        .channel('letters-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'letters' }, () => {
+          fetchLetter();
+        })
+        .subscribe();
+    }
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, [refreshTrigger]);
 
   const displayData = remoteLetterData || letterData;
