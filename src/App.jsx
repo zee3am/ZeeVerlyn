@@ -101,7 +101,7 @@ export default function App() {
         <Gallery refreshTrigger={refreshTrigger} />
         <Favorites favoriteCards={favoriteCards} />
         <Playlist refreshTrigger={refreshTrigger} />
-        <Letter />
+        <Letter refreshTrigger={refreshTrigger} />
       </main>
       <Footer />
       <AdminModal

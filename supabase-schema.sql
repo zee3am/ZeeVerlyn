@@ -81,6 +81,9 @@ CREATE POLICY "Public Write Playlist" ON public.playlist FOR ALL USING (true);
 CREATE POLICY "Public Read Letters" ON public.letters FOR SELECT USING (true);
 CREATE POLICY "Public Write Letters" ON public.letters FOR ALL USING (true);
 
+CREATE POLICY "Public Read Favorites" ON public.favorites FOR SELECT USING (true);
+CREATE POLICY "Public Write Favorites" ON public.favorites FOR ALL USING (true);
+
 -- Enable Realtime for all tables
 ALTER PUBLICATION supabase_realtime ADD TABLE public.gallery;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.timeline;

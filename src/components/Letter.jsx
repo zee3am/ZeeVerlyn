@@ -1,8 +1,47 @@
 import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 import { letterData } from '../data/letter';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { CornerWeb, SpiderWebDivider } from './SpiderWebDecor';
 
-export default function Letter() {
+export default function Letter({ refreshTrigger }) {
+  const [remoteLetterData, setRemoteLetterData] = useState(null);
+
+  useEffect(() => {
+    const fetchLetter = async () => {
+      if (!isSupabaseConfigured) return;
+
+      try {
+        const { data, error } = await supabase.from('letters').select('*').limit(1).single();
+        if (error) {
+          console.error('Failed to load letter from Supabase:', error);
+          return;
+        }
+
+        if (data) {
+          const paragraphs = Array.isArray(data.paragraphs)
+            ? data.paragraphs
+            : typeof data.paragraphs === 'string'
+              ? data.paragraphs.split('\n').filter((p) => p.trim() !== '')
+              : [];
+
+          setRemoteLetterData({
+            greeting: data.greeting || letterData.greeting,
+            paragraphs: paragraphs.length ? paragraphs : letterData.paragraphs,
+            closing: data.closing || letterData.closing,
+            signature: data.signature || letterData.signature,
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching letter data:', err);
+      }
+    };
+
+    fetchLetter();
+  }, [refreshTrigger]);
+
+  const displayData = remoteLetterData || letterData;
+
   return (
     <section id="letter" className="relative py-16 sm:py-24 px-4 sm:px-8 md:px-16 min-h-screen flex flex-col items-center justify-center overflow-hidden">
       <CornerWeb position="top-right" size={140} color="#ff6fa5" />
