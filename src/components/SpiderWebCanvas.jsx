@@ -64,8 +64,9 @@ export default function SpiderWebCanvas() {
 
     // Web Shooter Click event
     const handleCanvasClick = (e) => {
-      const targetTag = e.target.tagName.toLowerCase();
-      if (['button', 'a', 'input', 'textarea', 'select'].includes(targetTag) || e.target.closest('button')) {
+      const target = e.target instanceof Element ? e.target : e.target.parentElement;
+      const targetTag = target?.tagName?.toLowerCase() || '';
+      if (['button', 'a', 'input', 'textarea', 'select'].includes(targetTag) || target?.closest('button')) {
         return;
       }
 
