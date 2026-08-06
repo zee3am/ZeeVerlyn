@@ -144,7 +144,7 @@ export function SpiderWebDivider({ title = "" }) {
                 {title}
               </span>
             ) : (
-              <span className="font-[Anybody] text-xs font-bold uppercase text-[#111111] tracking-widest">
+              <span className="font-[Anybody] text-xs font-bold uppercase text-[#aa2c62] tracking-widest">
                 THWIP! 🕸️
               </span>
             )}
